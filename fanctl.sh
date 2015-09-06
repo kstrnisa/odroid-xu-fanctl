@@ -18,13 +18,13 @@
 #
 # The fan on the board has two operating modes, manual and automatic.
 #
-# In manual mode the fan will spin with a constant speed. When switching from
-# auto to manual mode the fan speed defaults to 100% regardlwss of previous
+# In manual mode the fan spins at a constant speed. When switching from
+# auto to manual mode the fan speed defaults to 100% regardless of previous
 # settings.
 #
-# In auto mode the fan will be in one of the four states (S1, S2, S3, S4) 
+# In auto mode the fan is in one of the four states (S1, S2, S3, S4) 
 # depending on the current temperature and temperature limits (T1, T2, T3).
-# The dependance of fan speed (S) on temperature (T) is:
+# The relationship between fan speed (S) and temperature (T) in auto mode is:
 # 
 # T < T1        S => S1  
 # T1 < T < T2   S => S2
