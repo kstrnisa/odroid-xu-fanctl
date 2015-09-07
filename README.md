@@ -1,8 +1,11 @@
 # odroid-xu-fanctl
 
+
 Fan control helper scripts for Odroid XU3/XU4 board.
 
+
 ## fanctl
+
 
 [fanctl.sh](https://github.com/kstrnisa/odroid-xu-fanctl/blob/master/fanctl.sh) is a convenience script that sets or queries fan related settings on the board:
  * fan control operating mode
@@ -29,9 +32,12 @@ Settings made this way are not persistent across reboots.
 
 The reason I wrote this is that by default my Odroid XU4 board has fairly conservative temperature limits for automatic fan control (57,63,68) and the fan starts/stops spinning every couple of seconds (irritating). My current temperature limits (75,83,90) are such that the fan actually spins only when there is significant load. I've been running this configuration for a month or so without problems but obviously there are no guarantees.
 
+
 ## fanmon
 
+
 [fanmon.sh](https://github.com/kstrnisa/odroid-xu-fanctl/blob/master/fanmon.sh) periodically displays the current fan speed, temperature and cpu frequency.
+
 
 ## install
 
@@ -47,9 +53,12 @@ sudo sh -c "curl https://raw.githubusercontent.com/kstrnisa/odroid-xu-fanctl/mas
 
 ## usage
 
+
+### fanctl
+
 ```
 fanctl.sh [-v] [-q] [-m mode] [-f fan speed] [-s fan states] [-l fan limits]
-        
+
         -v Verbose output.
         -q Query current fan related settings.
         -m Set fan control mode (0 - manual, 1 - automatic).
@@ -58,6 +67,21 @@ fanctl.sh [-v] [-q] [-m mode] [-f fan speed] [-s fan states] [-l fan limits]
         -l Set fan temperature limits in degrees C. Fromat is "T1,T2,T3". Only relevant in auto mode.
 ```
 
+Example:
+
+```
+fanctl.sh -m 1 -l 75,83,90 -s 0,51,71,91
+```
+
+This will set the fan control to automatic mode with temperature limits (75,83,90) for switching between fan (1,51,71,91) states/speeds. This means that while the temperature is below 75C the fan will not spin, when it is between 75C and 83C it will spin at 51% of maximum speed and so on.
+
+```
+fanctl.sh -m 0 -s 60
+```
+
+This will set the fan control to manual mode and set the fan speed to a fixed value of 60%.
+
+### fanmon
 ```
 fanmon.sh [-c] [-p update period]
 
