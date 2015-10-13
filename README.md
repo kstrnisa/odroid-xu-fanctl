@@ -1,7 +1,7 @@
 # odroid-xu-fanctl
 
 
-Fan control helper scripts for Odroid XU3/XU4 board.
+Fan control helper scripts for Odroid XU3/XU4 development boards.
 
 
 ## fanctl
@@ -44,11 +44,11 @@ The reason I wrote this is that by default my Odroid XU4 board has fairly conser
 These are shell scripts, so just drop it somewhere and make sure it's added to your $PATH. Or you can use the following one-liners:
 
 ```sh
-sudo sh -c "curl https://raw.githubusercontent.com/kstrnisa/odroid-xu-fanctl/master/fanctl.sh -o /usr/local/bin/fanctl.sh && chmod +x /usr/local/bin/fanctl.sh"
+sudo sh -c "curl https://raw.githubusercontent.com/kstrnisa/odroid-xu-fanctl/master/fanctl.sh -o /usr/bin/fanctl.sh && chmod +x /usr/bin/fanctl.sh"
 ```
 
 ```sh
-sudo sh -c "curl https://raw.githubusercontent.com/kstrnisa/odroid-xu-fanctl/master/fanmon.sh -o /usr/local/bin/fanmon.sh && chmod +x /usr/local/bin/fanmon.sh"
+sudo sh -c "curl https://raw.githubusercontent.com/kstrnisa/odroid-xu-fanctl/master/fanmon.sh -o /usr/bin/fanmon.sh && chmod +x /usr/bin/fanmon.sh"
 ```
 
 ## usage
