@@ -12,7 +12,7 @@ sha512sums=(SKIP)
 
 package(){
     cd ${pkgname}-${pkgver}
-    mkdir -p "${pkgdir}/usr/bin/"
-    cp fanctl.sh "${pkgdir}/usr/bin/"
-    cp fanmon.sh "${pkgdir}/usr/bin/"
+    install -D fanctl.sh "${pkgdir}/usr/bin/fanctl.sh"
+    install -D fanmon.sh "${pkgdir}/usr/bin/fanmon.sh"
+    install -D fanctl.service "${pkgdir}/usr/lib/systemd/system/fanctl.service"
 }
