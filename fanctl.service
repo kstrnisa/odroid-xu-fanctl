@@ -2,7 +2,7 @@
 Description=Set limits for automatic fan control
 
 [Service]
-ExecStart=fanctl.sh -m 1 -s 1,51,71,91 -l 75,83,90
+ExecStart=/usr/bin/fanctl.sh -m 1 -s 1,51,71,91 -l 75,83,90
 
 [Install]
 WantedBy=default.target
