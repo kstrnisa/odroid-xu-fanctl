@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 
 #
@@ -22,195 +22,331 @@
 # auto to manual mode the fan speed defaults to 100% regardless of previous
 # settings.
 #
-# In auto mode the fan is in one of the four states (S1, S2, S3, S4) 
+# In auto mode the fan is in one of the four states (S1, S2, S3, S4)
 # depending on the current temperature and temperature limits (T1, T2, T3).
 # The relationship between fan speed (S) and temperature (T) in auto mode is:
-# 
-# T < T1        S => S1  
+#
+# T < T1        S => S1
 # T1 < T < T2   S => S2
 # T2 < T < T3   S => S3
 # T3 < T        S => S4
 #
-# Although the fan speed can be set directly to a fixed value in auto mode 
+# Although the fan speed can be set directly to a fixed value in auto mode
 # it will immediately be overridden by auto control.
 #
 
 
-if [[ -d /sys/devices/odroid_fan.13 ]]
-then
-    # odroid-xu4
-    FAN_FOLDER=/sys/devices/odroid_fan.13
-elif [[ -d /sys/devices/odroid_fan.14 ]]
-then
-    # odroid-xu3
-    FAN_FOLDER=/sys/devices/odroid_fan.14
-else
-    printf "unsupported board \n"
-    exit 1
-fi
+# Constants.
+readonly FAN_MODE_MANUAL="0"
+readonly FAN_MODE_AUTO="1"
+
+# Command line arguments.
+readonly ARGS="$@"
+
+# Parsed command line arguments.
+FAN_MODE=""
+FAN_SPEEDS=""
+CPU_FREQS=""
+TEMP_LIMITS=""
+DEBUG="false"
+
+# Temperature control related device node files.
+FAN_FOLDER=""
+CORETEMP_FILE=""
+FAN_MODE_FILE=""
+FAN_SPEEDS_FILE=""
+TEMP_LIMITS_FILE=""
 
 
-CORETEMP_FILE=/sys/devices/virtual/thermal/thermal_zone0/temp
-FAN_MODE_FILE=$FAN_FOLDER/fan_mode
-FAN_PWM_FILE=$FAN_FOLDER/pwm_duty
-FAN_AUTO_SPEEDS_FILE=$FAN_FOLDER/fan_speeds
-FAN_AUTO_TEMPS_FILE=$FAN_FOLDER/temp_levels
+################################################################################
 
 
-if [[ ! ( -e $FAN_MODE_FILE && \
-        -e $FAN_PWM_FILE && \
-        -e $FAN_AUTO_SPEEDS_FILE && \
-        -e $FAN_AUTO_TEMPS_FILE && \
-        -e $CORETEMP_FILE ) ]]
-then
-    printf "unsupported board \n"
-    exit 1
-fi
+printf_err () {
+    printf "ERROR: %-16s %s \n" "[${FUNCNAME[1]}]:" "$@" >&2
+}
 
 
-while getopts ":m:f:s:l:vq" opt
-do
-    case $opt in
-        m)
-            FAN_MODE=$OPTARG
-            ;;
-        f)
-            FAN_SPEED=$OPTARG
-            ;;
-        s)
-            FAN_AUTO_SPEEDS=$OPTARG
-            ;;
-        l)
-            FAN_AUTO_TEMPS=$OPTARG
-            ;;
-        v)
-            VERBOSE=1
-            ;;
-        q)
-            QUERY=1
-            ;;
-        \?)
-            printf "invalid option: -%c \n" $OPTARG >&2
-            exit 1
-            ;;
-        :)
-            printf "option -%c requires an argument \n" $OPTARG >&2
-            exit 1
-            ;;
-    esac
-done
+printf_dbg () {
+    if [[ "$DEBUG" == "true" ]]; then
+        printf "DEBUG: %-16s %s \n" "[${FUNCNAME[1]}]:" "$@"
+    fi
+}
 
 
-if [[ $FAN_MODE ]]
-then
-    if [[ $FAN_MODE -eq 0 ]]
-    then
-        FAN_MODE_STRING=manual
-    elif [[ $FAN_MODE -eq 1 ]]
-    then
-        FAN_MODE_STRING=auto
+################################################################################
+
+
+cmdline () {
+    while getopts ":m:s:f:t:d" opt; do
+        case $opt in
+            m)
+                FAN_MODE="$OPTARG"
+                ;;
+            s)
+                FAN_SPEEDS="$OPTARG"
+                ;;
+            f)
+                CPU_FREQS="$OPTARG"
+                ;;
+            t)
+                TEMP_LIMITS="$OPTARG"
+                ;;
+            d)
+                DEBUG="true"
+                ;;
+            \?)
+                printf "invalid option: -%c \n" "$OPTARG" >&2
+                exit 1
+                ;;
+            :)
+                printf "option -%c requires an argument \n" "$OPTARG" >&2
+                exit 1
+                ;;
+        esac
+    done
+
+    readonly FAN_MODE
+    readonly FAN_SPEEDS
+    readonly CPU_FREQS
+    readonly TEMP_LIMITS
+    readonly DEBUG
+}
+
+
+################################################################################
+
+
+check_board () {
+    if [[ -d /sys/devices/odroid_fan.13 ]]; then
+        FAN_FOLDER=/sys/devices/odroid_fan.13
+        printf_dbg "odroid-xu4 board"
+    elif [[ -d /sys/devices/odroid_fan.14 ]]; then
+        FAN_FOLDER=/sys/devices/odroid_fan.14
+        printf_dbg "odroid-xu3 board"
     else
-        printf "invalid fan mode: %d \n" $FAN_MODE >&2
+        printf_err "unsupported board"
         exit 1
     fi
-    
-    if [[ $VERBOSE ]]
-    then
-        printf "setting FAN_MODE = %s \n" $FAN_MODE_STRING
-    fi
-    
-    echo $FAN_MODE > $FAN_MODE_FILE
-fi
 
+    CORETEMP_FILE=/sys/devices/virtual/thermal/thermal_zone0/temp
+    FAN_MODE_FILE=$FAN_FOLDER/fan_mode
+    FAN_SPEEDS_FILE=$FAN_FOLDER/fan_speeds
+    TEMP_LIMITS_FILE=$FAN_FOLDER/temp_levels
 
-if [[ $FAN_SPEED ]]
-then
-    if [[ $FAN_SPEED -lt 0 || $FAN_SPEED -gt 255 ]]
+    if [[ ! (  -e $FAN_MODE_FILE
+            && -e $FAN_SPEEDS_FILE
+            && -e $TEMP_LIMITS_FILE
+            && -e $CORETEMP_FILE ) ]]
     then
-        printf "invalid fan speed: %d \n" $FAN_SPEED >&2
+        printf_err "device node files not present"
         exit 1
     fi
-    
-    FAN_PWM=$(( $FAN_SPEED * 255 / 100 ))
-    
-    if [[ $VERBOSE ]]
-    then
-        printf "setting FAN_SPEED (FAN_PWM) = %d (%d) \n" $FAN_SPEED $FAN_PWM
-    fi
-    
-    echo $FAN_PWM > $FAN_PWM_FILE
-fi
+
+    readonly FAN_FOLDER
+    readonly CORETEMP_FILE
+    readonly FAN_MODE_FILE
+    readonly FAN_SPEEDS_FILE
+    readonly TEMP_LIMITS_FILE
+}
 
 
-if [[ $FAN_AUTO_SPEEDS ]]
-then
-    FAN_AUTO_SPEEDS=${FAN_AUTO_SPEEDS//,/ }
-    FAN_AUTO_SPEEDS_ARRAY=($FAN_AUTO_SPEEDS)
-    
-    if [[ ${#FAN_AUTO_SPEEDS_ARRAY[@]} -ne 4 ]]
-    then
-        printf "invalid fan speeds argument: %s \n" "$FAN_AUTO_SPEEDS" >&2
+################################################################################
+
+
+check_cmdline () {
+    if [[ -n "$FAN_MODE" ]]; then
+
+        check_mode
+
+        # In auto mode it is possible to to set either temperature limits, fan
+        # speed states, both or none (meaning just switching to auto mode and
+        # using whatever values are currently set).
+        if [[ "$FAN_MODE" == "$FAN_MODE_AUTO" ]]; then
+            if [[ -n "$CPU_FREQS" ]]; then
+                printf_err "only control via fan speed is possible in auto mode"
+                exit 1
+            fi
+
+            if [[ -n "$TEMP_LIMITS" ]]; then
+                check_temps
+            fi
+
+            if [[ -n "$FAN_SPEEDS" ]]; then
+                check_speeds
+            fi
+        fi
+
+        # In manual mode (where this script runs the control loop) the
+        # temperature limits and exactly one of either fan speed states or
+        # cpu frequency limits have to be set.
+        if [[ "$FAN_MODE" == "$FAN_MODE_MANUAL" ]]; then
+            if [[ -z "$TEMP_LIMITS" ]]; then
+                printf_err "temperature limits need to be specified in manual mode"
+                exit 1
+            fi
+
+            check_temps
+
+            if [[ ( -n "$FAN_SPEEDS" && -n "$CPU_FREQS" )
+                    || ( -z "$FAN_SPEEDS" && -z "$CPU_FREQS" ) ]]
+            then
+                printf_err "exactly one control method has to be specified in manual mode"
+                exit 1
+            fi
+
+            if [[ -n "$FAN_SPEEDS" ]]; then
+                check_speeds
+            fi
+
+            if [[ -n "$CPU_FREQS" ]]; then
+                check_freqs
+            fi
+        fi
+
+    else
+        if [[ -n "$TEMP_LIMITS" || -n "$FAN_SPEEDS" || -n "$CPU_FREQS" ]]; then
+            printf_err "fan control mode needs to be specified"
+            exit 1
+        fi
     fi
-    
-    for i in ${!FAN_AUTO_SPEEDS_ARRAY[@]}
-    do
-        FAN_SPEED=${FAN_AUTO_SPEEDS_ARRAY[i]}
-        if [[ $FAN_SPEED -lt 0 || $FAN_SPEED -gt 255 ]]
-        then
-            printf "invalid fan speed: %s \n" $FAN_SPEED >&2
+}
+
+
+check_mode () {
+    if [[ "$FAN_MODE" != "$FAN_MODE_AUTO"
+            && "$FAN_MODE" != "$FAN_MODE_MANUAL" ]];
+    then
+        printf_err "invalid control mode: $FAN_MODE"
+        exit 1
+    fi
+
+    printf_dbg "control mode valid"
+}
+
+
+check_temps () {
+    if [[ ! "$TEMP_LIMITS" =~ ^[0-9]+,[0-9]+,[0-9]+$ ]]; then
+        printf_err "invalid temperature limits: $TEMP_LIMITS"
+        exit 1
+    fi
+
+    printf_dbg "temperature limits valid"
+}
+
+
+check_speeds () {
+    if [[ ! "$FAN_SPEEDS" =~ ^[0-9]+,[0-9]+,[0-9]+,[0-9]+$ ]]; then
+        printf_err "invalid fan speeds: $FAN_SPEEDS"
+        exit 1
+    fi
+
+    local fan_speeds_array=(${FAN_SPEEDS//,/ })
+    local fan_speed=""
+
+    for i in ${!fan_speeds_array[@]}; do
+        fan_speed=${fan_speeds_array[i]}
+        if (( fan_speed > 255 )); then
+            printf_err "invalid fan speed: $fan_speed"
             exit 1
         fi
     done
-    
-    if [[ $VERBOSE ]]
-    then
-        printf "setting FAN_AUTO_SPEEDS = %s \n" "$FAN_AUTO_SPEEDS"
+
+    printf_dbg "fan speed states valid"
+}
+
+
+check_freqs () {
+    printf_dbg "${FUNCNAME[0]}"
+}
+
+
+################################################################################
+
+
+config_mode () {
+    printf_dbg "setting fan control mode: $FAN_MODE"
+    printf "$FAN_MODE" > "$FAN_MODE_FILE"
+}
+
+
+config_temps () {
+    local temp_limits="${TEMP_LIMITS//,/ }"
+    printf_dbg "setting auto mode temperature limits: $temp_limits"
+    printf "$temp_limits" > "$TEMP_LIMITS_FILE"
+}
+
+
+config_speeds () {
+    local fan_speeds="${FAN_SPEEDS//,/ }"
+    printf_dbg "setting auto mode fan speed states: $fan_speeds"
+    printf "$fan_speeds" > "$FAN_SPEEDS_FILE"
+}
+
+
+control_fan () {
+    printf_dbg "${FUNCNAME[0]}"
+}
+
+
+control_freq () {
+    printf_dbg "${FUNCNAME[0]}"
+}
+
+
+################################################################################
+
+
+main () {
+    cmdline $ARGS
+    check_board
+    check_cmdline
+
+    if [[ "$FAN_MODE" == "$FAN_MODE_AUTO" ]]; then
+        config_mode
+
+        if [[ -n "$TEMP_LIMITS" ]]; then
+            config_temps
+        fi
+
+        if [[ -n "$FAN_SPEEDS" ]]; then
+            config_speeds
+        fi
     fi
-    
-    echo $FAN_AUTO_SPEEDS > $FAN_AUTO_SPEEDS_FILE
-fi
 
+    if [[ "$FAN_MODE" == "$FAN_MODE_MANUAL" ]]; then
+        config_mode
 
-if [[ $FAN_AUTO_TEMPS ]]
-then
-    FAN_AUTO_TEMPS=${FAN_AUTO_TEMPS//,/ }
-    FAN_AUTO_TEMPS_ARRAY=($FAN_AUTO_TEMPS)
-    
-    if [[ ${#FAN_AUTO_TEMPS_ARRAY[@]} -ne 3 ]]
-    then
-        printf "invalid temperature limits argument: %s " "$FAN_AUTO_TEMPS" >&2
+        if [[ -n "$FAN_SPEEDS" ]]; then
+            control_fan
+        fi
+
+        if [[ -n "$CPU_FREQS" ]]; then
+            control_freq
+        fi
     fi
-    
-    if [[ $VERBOSE ]]
-    then
-        printf "setting FAN_AUTO_TEMPS = %s \n" "$FAN_AUTO_TEMPS"
-    fi
-    
-    echo $FAN_AUTO_TEMPS > $FAN_AUTO_TEMPS_FILE
-fi
+}
 
 
-if [[ $QUERY ]]
-then
-    CORETEMP=$(cat $CORETEMP_FILE | sed -r 's:[0-9]{3}$::')
-    FAN_MODE=$(cat $FAN_MODE_FILE | sed 's:fan_mode ::')
-    FAN_PWM=$(cat $FAN_PWM_FILE)
-    FAN_SPEED=$(( $FAN_PWM * 100 / 255 ))
-    FAN_AUTO_SPEEDS=$(cat $FAN_AUTO_SPEEDS_FILE)
-    FAN_AUTO_TEMPS=$(cat $FAN_AUTO_TEMPS_FILE)
+main
 
-    if [[ $VERBOSE ]]
-    then
-        printf "\n"
-    fi
-    
-    printf "Fan control mode:             %s \n" $FAN_MODE
-    printf "Current temperature [C]       %d \n" $CORETEMP
-    printf "Current fan speed [%%]:        %d \n" $FAN_SPEED
-    printf "Auto speed settings [%%]:      %s \n" "$FAN_AUTO_SPEEDS"
-    printf "Auto temperature limits [C]:  %s \n" "$FAN_AUTO_TEMPS"
-fi
-
-
-
-
+#
+# if [[ $QUERY ]]
+# then
+#     CORETEMP=$(cat $CORETEMP_FILE | sed -r 's:[0-9]{3}$::')
+#     FAN_MODE=$(cat $FAN_MODE_FILE | sed 's:fan_mode ::')
+#     FAN_PWM=$(cat $FAN_PWM_FILE)
+#     FAN_SPEED=$(( $FAN_PWM * 100 / 255 ))
+#     FAN_AUTO_SPEEDS=$(cat $FAN_AUTO_SPEEDS_FILE)
+#     FAN_AUTO_TEMPS=$(cat $FAN_AUTO_TEMPS_FILE)
+#
+#     if [[ $VERBOSE ]]
+#     then
+#         printf "\n"
+#     fi
+#
+#     printf "Fan control mode:             %s \n" $FAN_MODE
+#     printf "Current temperature [C]       %d \n" $CORETEMP
+#     printf "Current fan speed [%%]:        %d \n" $FAN_SPEED
+#     printf "Auto speed settings [%%]:      %s \n" "$FAN_AUTO_SPEEDS"
+#     printf "Auto temperature limits [C]:  %s \n" "$FAN_AUTO_TEMPS"
+# fi
