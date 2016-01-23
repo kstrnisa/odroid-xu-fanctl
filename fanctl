@@ -195,16 +195,6 @@ check_cmdline () {
 
         check_mode
 
-        if [[ -n "$QUERY" ]]; then
-            printf_err "cannot query and control at the same time"
-            exit 1
-        fi
-
-        if [[ -n "$MONITOR" ]]; then
-            printf_err "cannot monitor and control at the same time"
-            exit 1
-        fi
-
         # In auto mode it is possible to to set either temperature limits, fan
         # speed states, both or none (meaning just switching to auto mode and
         # using whatever values are currently set).
@@ -373,6 +363,9 @@ control_temp () {
             temp_limit="${temp_limits_array[i]}"
             state_value="${states_array[i]}"
             if (( core_temp < temp_limit )); then
+                if [[ "$MONITOR" == "true" ]]; then
+                    get_status
+                fi
                 "$state_setter" "$state_value"
                 break
             fi
@@ -401,7 +394,7 @@ set_cpu_freq () {
 }
 
 
-query_config () {
+get_config () {
     local fan_mode="$(cat $FAN_MODE_FILE | sed "s:fan_mode ::")"
     local fan_speeds="$(cat $FAN_SPEEDS_FILE)"
     local temp_limits="$(cat $TEMP_LIMITS_FILE)"
@@ -412,33 +405,31 @@ query_config () {
 }
 
 
-monitor_info () {
-    local core_temp=""
-    local fan_pwm=""
-    local fan_speed=""
-    local cpu_freq_a7=""
-    local cpu_freq_a15=""
+get_status () {
+    local core_temp="$(cat $CORE_TEMP_FILE | sed -r "s:[0-9]{3}$::")"
+    local fan_pwm="$(cat $FAN_PWM_FILE)"
+    local fan_speed="$(( fan_pwm * 100 / 255 ))"
+    local cpu_freq_a7="$(cpupower -c 0 frequency-info -f  \
+            | tail -n 1                             \
+            | sed -r 's:[0-9]{3}$::')"
+    local cpu_freq_a15="$(cpupower -c 4 frequency-info -f \
+            | tail -n 1                             \
+            | sed -r 's:[0-9]{3}$::')"
 
+    printf "%4d MHz " "$cpu_freq_a15"
+    printf "%4d MHz " "$cpu_freq_a7"
+    printf "%3d C " "$core_temp"
+    printf "%3d %% " "$fan_speed"
+    printf "\n"
+}
+
+
+monitor_status () {
     printf " A15       A7      TEMP   FAN \n"
     printf "******************************\n"
 
     while true; do
-        core_temp="$(cat $CORE_TEMP_FILE | sed -r "s:[0-9]{3}$::")"
-        fan_pwm="$(cat $FAN_PWM_FILE)"
-        fan_speed="$(( fan_pwm * 100 / 255 ))"
-        cpu_freq_a7="$(cpupower -c 0 frequency-info -f  \
-                | tail -n 1                             \
-                | sed -r 's:[0-9]{3}$::')"
-        cpu_freq_a15="$(cpupower -c 4 frequency-info -f \
-                | tail -n 1                             \
-                | sed -r 's:[0-9]{3}$::')"
-
-        printf "%4d MHz " "$cpu_freq_a15"
-        printf "%4d MHz " "$cpu_freq_a7"
-        printf "%3d C " "$core_temp"
-        printf "%3d %% " "$fan_speed"
-        printf "\n"
-
+        get_status
         sleep "$PERIOD"
     done
 }
@@ -463,6 +454,10 @@ main () {
     check_board
     cmdline $ARGS
     check_cmdline
+
+    if [[ "$QUERY" == "true" ]]; then
+        get_config
+    fi
 
     if [[ "$FAN_MODE" == "$FAN_MODE_AUTO" ]]; then
         config_mode
@@ -491,12 +486,8 @@ main () {
         fi
     fi
 
-    if [[ "$QUERY" == "true" ]]; then
-        query_config
-    fi
-
     if [[ "$MONITOR" == "true" ]]; then
-        monitor_info
+        monitor_status
     fi
 }
 
