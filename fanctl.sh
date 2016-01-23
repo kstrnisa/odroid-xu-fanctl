@@ -48,9 +48,12 @@ FAN_MODE=""
 FAN_SPEEDS=""
 CPU_FREQS=""
 TEMP_LIMITS=""
+QUERY="false"
 DEBUG="false"
 
 # Temperature control related device node files.
+readonly FAN_FOLDER_XU3="/sys/devices/odroid_fan.14"
+readonly FAN_FOLDER_XU4="/sys/devices/odroid_fan.13"
 FAN_FOLDER=""
 CORETEMP_FILE=""
 FAN_MODE_FILE=""
@@ -77,7 +80,7 @@ printf_dbg () {
 
 
 cmdline () {
-    while getopts ":m:s:f:t:d" opt; do
+    while getopts ":m:s:f:t:qd" opt; do
         case $opt in
             m)
                 FAN_MODE="$OPTARG"
@@ -90,6 +93,9 @@ cmdline () {
                 ;;
             t)
                 TEMP_LIMITS="$OPTARG"
+                ;;
+            q)
+                QUERY="true"
                 ;;
             d)
                 DEBUG="true"
@@ -109,6 +115,7 @@ cmdline () {
     readonly FAN_SPEEDS
     readonly CPU_FREQS
     readonly TEMP_LIMITS
+    readonly QUERY
     readonly DEBUG
 }
 
@@ -117,26 +124,26 @@ cmdline () {
 
 
 check_board () {
-    if [[ -d /sys/devices/odroid_fan.13 ]]; then
-        FAN_FOLDER=/sys/devices/odroid_fan.13
+    if [[ -d "$FAN_FOLDER_XU4" ]]; then
+        FAN_FOLDER="$FAN_FOLDER_XU4"
         printf_dbg "odroid-xu4 board"
-    elif [[ -d /sys/devices/odroid_fan.14 ]]; then
-        FAN_FOLDER=/sys/devices/odroid_fan.14
+    elif [[ -d "$FAN_FOLDER_XU3" ]]; then
+        FAN_FOLDER="$FAN_FOLDER_XU3"
         printf_dbg "odroid-xu3 board"
     else
         printf_err "unsupported board"
         exit 1
     fi
 
-    CORETEMP_FILE=/sys/devices/virtual/thermal/thermal_zone0/temp
-    FAN_MODE_FILE=$FAN_FOLDER/fan_mode
-    FAN_SPEEDS_FILE=$FAN_FOLDER/fan_speeds
-    TEMP_LIMITS_FILE=$FAN_FOLDER/temp_levels
+    CORETEMP_FILE="/sys/devices/virtual/thermal/thermal_zone0/temp"
+    FAN_MODE_FILE="$FAN_FOLDER/fan_mode"
+    FAN_SPEEDS_FILE="$FAN_FOLDER/fan_speeds"
+    TEMP_LIMITS_FILE="$FAN_FOLDER/temp_levels"
 
-    if [[ ! (  -e $FAN_MODE_FILE
-            && -e $FAN_SPEEDS_FILE
-            && -e $TEMP_LIMITS_FILE
-            && -e $CORETEMP_FILE ) ]]
+    if [[ ! (  -e "$FAN_MODE_FILE"
+            && -e "$FAN_SPEEDS_FILE"
+            && -e "$TEMP_LIMITS_FILE"
+            && -e "$CORETEMP_FILE" ) ]]
     then
         printf_err "device node files not present"
         exit 1
@@ -293,12 +300,25 @@ control_freq () {
 }
 
 
+query_config () {
+    local coretemp="$(cat $CORETEMP_FILE | sed -r "s:[0-9]{3}$::")"
+    local fan_mode="$(cat $FAN_MODE_FILE | sed "s:fan_mode ::")"
+    local fan_speeds="$(cat $FAN_SPEEDS_FILE)"
+    local temp_limits="$(cat $TEMP_LIMITS_FILE)"
+
+    printf "Current temperature [C]       %d \n" "$coretemp"
+    printf "Fan control mode:             %s \n" "$fan_mode"
+    printf "Auto speed settings [%%]:      %s \n" "$fan_speeds"
+    printf "Auto temperature limits [C]:  %s \n" "$temp_limits"
+}
+
+
 ################################################################################
 
 
 main () {
-    cmdline $ARGS
     check_board
+    cmdline $ARGS
     check_cmdline
 
     if [[ "$FAN_MODE" == "$FAN_MODE_AUTO" ]]; then
@@ -324,29 +344,11 @@ main () {
             control_freq
         fi
     fi
+
+    if [[ "$QUERY" == "true" ]]; then
+        query_config
+    fi
 }
 
 
 main
-
-#
-# if [[ $QUERY ]]
-# then
-#     CORETEMP=$(cat $CORETEMP_FILE | sed -r 's:[0-9]{3}$::')
-#     FAN_MODE=$(cat $FAN_MODE_FILE | sed 's:fan_mode ::')
-#     FAN_PWM=$(cat $FAN_PWM_FILE)
-#     FAN_SPEED=$(( $FAN_PWM * 100 / 255 ))
-#     FAN_AUTO_SPEEDS=$(cat $FAN_AUTO_SPEEDS_FILE)
-#     FAN_AUTO_TEMPS=$(cat $FAN_AUTO_TEMPS_FILE)
-#
-#     if [[ $VERBOSE ]]
-#     then
-#         printf "\n"
-#     fi
-#
-#     printf "Fan control mode:             %s \n" $FAN_MODE
-#     printf "Current temperature [C]       %d \n" $CORETEMP
-#     printf "Current fan speed [%%]:        %d \n" $FAN_SPEED
-#     printf "Auto speed settings [%%]:      %s \n" "$FAN_AUTO_SPEEDS"
-#     printf "Auto temperature limits [C]:  %s \n" "$FAN_AUTO_TEMPS"
-# fi
