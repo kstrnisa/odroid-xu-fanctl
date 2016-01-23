@@ -355,6 +355,10 @@ control_temp () {
     # the current temperature.
     temp_limits_array[${#temp_limits_array[@]}]="$temp_limit_max"
 
+    if [[ "$MONITOR" == "true" ]]; then
+        monitor_header
+    fi
+
     # Main temperature control loop.
     while true; do
         core_temp="$(cat $CORE_TEMP_FILE | sed -r "s:[0-9]{3}$::")"
@@ -424,10 +428,14 @@ get_status () {
 }
 
 
-monitor_status () {
+monitor_header () {
     printf " A15       A7      TEMP   FAN \n"
     printf "******************************\n"
+}
 
+
+monitor_status () {
+    monitor_header
     while true; do
         get_status
         sleep "$PERIOD"
