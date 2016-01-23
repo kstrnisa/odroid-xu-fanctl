@@ -2,14 +2,15 @@
 
 
 #
-# Utility script to configure or control the temperature on odroid xu3/xu4 board.
+# Utility script to configure or control the temperature on Odroid xu3/xu4 board.
 #
-# Usage: fanctl.sh [-d] [-q] [-m mode] [-s fan states] [-t temperature limits]
+# Usage: fanctl.sh [-d] [-q] [-m mode] [-s fan states] [-f freq states] [-t temperature limits]
 #
 #        -d Debug output.
 #        -q Query automatic mode temperature control and fan settings.
 #        -m Set fan control mode (0 - manual, 1 - automatic).
 #        -s Set fan speed states in % of maximum (0 - 100). Format is "S1,S2,S3,S4".
+#        -f Set maximum cpu frequency states in MHz. Format is "S1,S2,S3,S4".
 #        -t Set fan temperature limits in degrees C. Format is "T1,T2,T3".
 #
 # Temperature control via fan control (in both manual and automatic mode)
@@ -36,11 +37,18 @@
 # minimize the possibility of overheating. If this mode is specified the
 # script will run the control loop indefinitely.
 #
+# In manual mode it is possible to run the a temperature control loop that
+# modifies the maximum cpu frequency instead of fan speed. The behavior is
+# analogous to the that of fan speed based control only that the fan speed
+# states are replaced by maximum cpu frequency states. In this mode the
+# maximum frequency of all cores is modified.
+#
 
 
 # Constants.
 readonly FAN_MODE_MANUAL="0"
 readonly FAN_MODE_AUTO="1"
+readonly CPU_FREQ_MAX="2000"
 
 # Command line arguments.
 readonly ARGS="$@"
@@ -57,9 +65,10 @@ DEBUG="false"
 readonly FAN_FOLDER_XU3="/sys/devices/odroid_fan.14"
 readonly FAN_FOLDER_XU4="/sys/devices/odroid_fan.13"
 FAN_FOLDER=""
-CORETEMP_FILE=""
+CORE_TEMP_FILE=""
 FAN_MODE_FILE=""
 FAN_SPEEDS_FILE=""
+FAN_PWM_FILE=""
 TEMP_LIMITS_FILE=""
 
 
@@ -137,24 +146,27 @@ check_board () {
         exit 1
     fi
 
-    CORETEMP_FILE="/sys/devices/virtual/thermal/thermal_zone0/temp"
+    CORE_TEMP_FILE="/sys/devices/virtual/thermal/thermal_zone0/temp"
     FAN_MODE_FILE="$FAN_FOLDER/fan_mode"
     FAN_SPEEDS_FILE="$FAN_FOLDER/fan_speeds"
+    FAN_PWM_FILE="$FAN_FOLDER/pwm_duty"
     TEMP_LIMITS_FILE="$FAN_FOLDER/temp_levels"
 
     if [[ ! (  -e "$FAN_MODE_FILE"
             && -e "$FAN_SPEEDS_FILE"
+            && -e "$FAN_PWM_FILE"
             && -e "$TEMP_LIMITS_FILE"
-            && -e "$CORETEMP_FILE" ) ]]
+            && -e "$CORE_TEMP_FILE" ) ]]
     then
         printf_err "device node files not present"
         exit 1
     fi
 
     readonly FAN_FOLDER
-    readonly CORETEMP_FILE
+    readonly CORE_TEMP_FILE
     readonly FAN_MODE_FILE
     readonly FAN_SPEEDS_FILE
+    readonly FAN_PWM_FILE
     readonly TEMP_LIMITS_FILE
 }
 
@@ -292,26 +304,94 @@ config_speeds () {
 }
 
 
-control_fan () {
-    printf_dbg "${FUNCNAME[0]}"
+control_temp () {
+    local method="$1"
+    local states=""
+
+    if [[ "$method" == "fan" ]]; then
+        states="$FAN_SPEEDS"
+        state_setter="set_fan_speed"
+    elif [[ "$method" == "freq" ]]; then
+        states="$CPU_FREQS"
+        state_setter="set_cpu_freq"
+    else
+        printf_err "invalid control method: $method"
+        exit 1
+    fi
+
+    printf_dbg "control method: $method"
+
+    local temp_limits_array=(${TEMP_LIMITS//,/ })
+    local temp_limit_max=1000
+    local temp_limit=""
+
+    local states_array=(${states//,/ })
+    local state_value=""
+
+    local core_temp=""
+
+    # Add forth temperature limit that is high enough to always be higher than
+    # the current temperature.
+    temp_limits_array[${#temp_limits_array[@]}]="$temp_limit_max"
+
+    # Main temperature control loop.
+    while true; do
+        core_temp="$(cat $CORE_TEMP_FILE | sed -r "s:[0-9]{3}$::")"
+
+        for i in ${!temp_limits_array[@]}; do
+            temp_limit="${temp_limits_array[i]}"
+            state_value="${states_array[i]}"
+            if (( core_temp < temp_limit )); then
+                "$state_setter" "$state_value"
+                break
+            fi
+        done
+
+        sleep 1
+    done
 }
 
 
-control_freq () {
-    printf_dbg "${FUNCNAME[0]}"
+set_fan_speed () {
+    local fan_speed="$1"
+    local fan_pwm="$(( $fan_speed * 255 / 100 ))"
+
+    printf_dbg "setting fan speed (pwm): $fan_speed ($fan_pwm)"
+    printf "$fan_pwm" > "$FAN_PWM_FILE"
+}
+
+
+set_cpu_freq () {
+    local cpu_freq_mhz="$1"
+    local cpu_freq_khz="$(( $1 * 1000 ))"
+
+    printf_dbg "setting max cpu frequency: $cpu_freq_mhz MHz"
+    cpupower -c all frequency-set -u "$cpu_freq_khz" 1>/dev/null
 }
 
 
 query_config () {
-    local coretemp="$(cat $CORETEMP_FILE | sed -r "s:[0-9]{3}$::")"
+    local core_temp="$(cat $CORE_TEMP_FILE | sed -r "s:[0-9]{3}$::")"
     local fan_mode="$(cat $FAN_MODE_FILE | sed "s:fan_mode ::")"
     local fan_speeds="$(cat $FAN_SPEEDS_FILE)"
     local temp_limits="$(cat $TEMP_LIMITS_FILE)"
 
-    printf "Current temperature [C]       %d \n" "$coretemp"
+    printf "Current temperature [C]       %d \n" "$core_temp"
     printf "Fan control mode:             %s \n" "$fan_mode"
     printf "Auto speed settings [%%]:      %s \n" "$fan_speeds"
     printf "Auto temperature limits [C]:  %s \n" "$temp_limits"
+}
+
+
+################################################################################
+
+
+before_exit () {
+    printf_dbg "setting automatic fan control mode"
+    printf "$FAN_MODE_AUTO" > "$FAN_MODE_FILE"
+
+    printf_dbg "removing cpu frequency limits"
+    set_cpu_freq "$CPU_FREQ_MAX"
 }
 
 
@@ -336,14 +416,17 @@ main () {
     fi
 
     if [[ "$FAN_MODE" == "$FAN_MODE_MANUAL" ]]; then
+        trap before_exit EXIT
+
         config_mode
 
         if [[ -n "$FAN_SPEEDS" ]]; then
-            control_fan
+            control_temp "fan"
         fi
 
         if [[ -n "$CPU_FREQS" ]]; then
-            control_freq
+            set_fan_speed "0"
+            control_temp "freq"
         fi
     fi
 

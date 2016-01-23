@@ -29,6 +29,8 @@ In automatic mode the fan is controlled by the hardware and the user (with or wi
 
 In manual mode the hardware will simply spin the fan with a constant speed. However the control loop is run by this script. The behavior is exactly the same as the behavior of hardware temperature control in automatic mode. After the script terminates it will always set the control mode to automatic to minimize the possibility of overheating. If this mode is specified the script will run the control loop indefinitely.
 
+In manual mode it is possible to run the a temperature control loop that modifies the maximum cpu frequency instead of fan speed. The behavior is analogous to the that of fan speed based control only that the fan speed states are replaced by maximum cpu frequency states. In this mode the maximum frequency of all cores is modified.
+
 The reason I wrote this is that by default my Odroid xu4 board has fairly conservative temperature limits for automatic fan control (57,63,68) and the fan starts/stops spinning every couple of seconds (irritating). My current temperature limits (75,83,90) are such that the fan actually spins only when there is significant load. I've been running this configuration for months now without any problems but obviously there are no guarantees.
 
 
@@ -56,12 +58,13 @@ sudo sh -c "curl https://raw.githubusercontent.com/kstrnisa/odroid-xu-fanctl/mas
 ### fanctl
 
 ```
-Usage: fanctl.sh [-d] [-q] [-m mode] [-s fan states] [-t temperature limits]
+Usage: fanctl.sh [-d] [-q] [-m mode] [-s fan states] [-f freq states] [-t temperature limits]
 
         -d Debug output.
         -q Query automatic mode temperature control and fan settings.
         -m Set fan control mode (0 - manual, 1 - automatic).
         -s Set fan speed states in % of maximum (0 - 100). Format is "S1,S2,S3,S4".
+        -f Set maximum cpu frequency states in MHz. Format is "S1,S2,S3,S4".
         -t Set fan temperature limits in degrees C. Format is "T1,T2,T3".
 ```
 
