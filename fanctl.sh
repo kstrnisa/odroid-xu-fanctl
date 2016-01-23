@@ -2,27 +2,18 @@
 
 
 #
-# Helper script to configure fan related settings on odroid xu3/xu4 board.
+# Utility script to configure or control the temperature on odroid xu3/xu4 board.
 #
-# Usage: fanctl.sh [-v] [-q] [-m mode] [-f fan speed] [-s fan states] [-l fan limits]
+# Usage: fanctl.sh [-d] [-q] [-m mode] [-s fan states] [-t temperature limits]
 #
-#        -v Verbose output.
-#        -q Query current fan related settings.
+#        -d Debug output.
+#        -q Query automatic mode temperature control and fan settings.
 #        -m Set fan control mode (0 - manual, 1 - automatic).
-#        -f Set fan speed in % of maximum (0 - 100). Only relevant in manual mode.
 #        -s Set fan speed states in % of maximum (0 - 100). Format is "S1,S2,S3,S4".
-#           Only relevant in auto mode.
-#        -l Set fan temperature limits in degrees C. Fromat is "T1,T2,T3".
-#           Only relevant in auto mode.
+#        -t Set fan temperature limits in degrees C. Fromat is "T1,T2,T3".
 #
-#
-# The fan on the board has two operating modes, manual and automatic.
-#
-# In manual mode the fan spins at a constant speed. When switching from
-# auto to manual mode the fan speed defaults to 100% regardless of previous
-# settings.
-#
-# In auto mode the fan is in one of the four states (S1, S2, S3, S4)
+# Temperature control via fan control (in both manual and automatic mode)
+# works by setting the fan speed to one of four states (S1, S2, S3, S4)
 # depending on the current temperature and temperature limits (T1, T2, T3).
 # The relationship between fan speed (S) and temperature (T) in auto mode is:
 #
@@ -31,8 +22,19 @@
 # T2 < T < T3   S => S3
 # T3 < T        S => S4
 #
-# Although the fan speed can be set directly to a fixed value in auto mode
-# it will immediately be overridden by auto control.
+# The temperature control has two operating modes, manual and automatic.
+#
+# In manual mode the hardware will simply spin the fan with a constant speed.
+# However the control loop is run by this script. The behavior is exactly
+# the same as the behavior of hardware temperature control in automatic mode.
+# After the script terminates it will always set the control mode to automatic
+# to minimize the possibility of overheating. If this mode is specified
+# the script will run the control loop indefinitely.
+#
+# In manual mode the control loop is performed by this utility. After the
+# utility terminates it will always set the control mode to automatic to
+# minimize the possibility of overheating. If this mode is specified the
+# script will run the control loop indefinitely.
 #
 
 
