@@ -62,7 +62,7 @@ Usage: fanctl.sh [-d] [-q] [-m mode] [-s fan states] [-t temperature limits]
         -q Query automatic mode temperature control and fan settings.
         -m Set fan control mode (0 - manual, 1 - automatic).
         -s Set fan speed states in % of maximum (0 - 100). Format is "S1,S2,S3,S4".
-        -t Set fan temperature limits in degrees C. Fromat is "T1,T2,T3".
+        -t Set fan temperature limits in degrees C. Format is "T1,T2,T3".
 ```
 
 Example:
