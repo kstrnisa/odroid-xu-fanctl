@@ -241,7 +241,7 @@ check_mode () {
         exit 1
     fi
 
-    printf_dbg "control mode valid"
+    printf_dbg "control mode valid: $FAN_MODE"
 }
 
 
@@ -251,7 +251,7 @@ check_temps () {
         exit 1
     fi
 
-    printf_dbg "temperature limits valid"
+    printf_dbg "temperature limits valid: $TEMP_LIMITS"
 }
 
 
@@ -272,12 +272,17 @@ check_speeds () {
         fi
     done
 
-    printf_dbg "fan speed states valid"
+    printf_dbg "fan speed states valid: $FAN_SPEEDS"
 }
 
 
 check_freqs () {
-    printf_dbg "${FUNCNAME[0]}"
+    if [[ ! "$CPU_FREQS" =~ ^[0-9]+,[0-9]+,[0-9]+,[0-9]+$ ]]; then
+        printf_err "invalid cpu frequencies: $CPU_FREQS"
+        exit 1
+    fi
+
+    printf_dbg "cpu frequencies valid: $CPU_FREQS"
 }
 
 
