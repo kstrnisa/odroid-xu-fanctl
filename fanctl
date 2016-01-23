@@ -4,10 +4,13 @@
 #
 # Utility script to configure or control the temperature on Odroid xu3/xu4 board.
 #
-# Usage: fanctl [-d] [-q] [-m mode] [-s fan states] [-f freq states] [-t temperature limits]
+# Usage: fanctl [-d] [-q] [-r] [-p period] [-m mode]
+#               [-s fan states] [-f freq states] [-t temperature limits]
 #
 #        -d Debug output.
 #        -q Query automatic mode temperature control and fan settings.
+#        -r Monitor temperature, fan speed and cpu frequency.
+#        -p Update period for manual temperature control and monitoring.
 #        -m Set fan control mode (0 - manual, 1 - automatic).
 #        -s Set fan speed states in % of maximum (0 - 100). Format is "S1,S2,S3,S4".
 #        -f Set maximum cpu frequency states in MHz. Format is "S1,S2,S3,S4".
@@ -43,6 +46,9 @@
 # states are replaced by maximum cpu frequency states. In this mode the
 # maximum frequency of all cores is modified.
 #
+# The script can also periodically display the current fan speed, temperature
+# and cpu frequency.
+#
 
 
 # Constants.
@@ -58,7 +64,9 @@ FAN_MODE=""
 FAN_SPEEDS=""
 CPU_FREQS=""
 TEMP_LIMITS=""
+PERIOD="1"
 QUERY="false"
+MONITOR="false"
 DEBUG="false"
 
 # Temperature control related device node files.
@@ -91,7 +99,7 @@ printf_dbg () {
 
 
 cmdline () {
-    while getopts ":m:s:f:t:qd" opt; do
+    while getopts ":m:s:f:t:p:qrd" opt; do
         case $opt in
             m)
                 FAN_MODE="$OPTARG"
@@ -105,8 +113,14 @@ cmdline () {
             t)
                 TEMP_LIMITS="$OPTARG"
                 ;;
+            p)
+                PERIOD="$OPTARG"
+                ;;
             q)
                 QUERY="true"
+                ;;
+            r)
+                MONITOR="true"
                 ;;
             d)
                 DEBUG="true"
@@ -126,7 +140,9 @@ cmdline () {
     readonly FAN_SPEEDS
     readonly CPU_FREQS
     readonly TEMP_LIMITS
+    readonly PERIOD
     readonly QUERY
+    readonly MONITOR
     readonly DEBUG
 }
 
@@ -178,6 +194,16 @@ check_cmdline () {
     if [[ -n "$FAN_MODE" ]]; then
 
         check_mode
+
+        if [[ -n "$QUERY" ]]; then
+            printf_err "cannot query and control at the same time"
+            exit 1
+        fi
+
+        if [[ -n "$MONITOR" ]]; then
+            printf_err "cannot monitor and control at the same time"
+            exit 1
+        fi
 
         # In auto mode it is possible to to set either temperature limits, fan
         # speed states, both or none (meaning just switching to auto mode and
@@ -352,7 +378,7 @@ control_temp () {
             fi
         done
 
-        sleep 1
+        sleep "$PERIOD"
     done
 }
 
@@ -376,15 +402,45 @@ set_cpu_freq () {
 
 
 query_config () {
-    local core_temp="$(cat $CORE_TEMP_FILE | sed -r "s:[0-9]{3}$::")"
     local fan_mode="$(cat $FAN_MODE_FILE | sed "s:fan_mode ::")"
     local fan_speeds="$(cat $FAN_SPEEDS_FILE)"
     local temp_limits="$(cat $TEMP_LIMITS_FILE)"
 
-    printf "Current temperature [C]       %d \n" "$core_temp"
     printf "Fan control mode:             %s \n" "$fan_mode"
     printf "Auto speed settings [%%]:      %s \n" "$fan_speeds"
     printf "Auto temperature limits [C]:  %s \n" "$temp_limits"
+}
+
+
+monitor_info () {
+    local core_temp=""
+    local fan_pwm=""
+    local fan_speed=""
+    local cpu_freq_a7=""
+    local cpu_freq_a15=""
+
+    printf " A15       A7      TEMP   FAN \n"
+    printf "******************************\n"
+
+    while true; do
+        core_temp="$(cat $CORE_TEMP_FILE | sed -r "s:[0-9]{3}$::")"
+        fan_pwm="$(cat $FAN_PWM_FILE)"
+        fan_speed="$(( fan_pwm * 100 / 255 ))"
+        cpu_freq_a7="$(cpupower -c 0 frequency-info -f  \
+                | tail -n 1                             \
+                | sed -r 's:[0-9]{3}$::')"
+        cpu_freq_a15="$(cpupower -c 4 frequency-info -f \
+                | tail -n 1                             \
+                | sed -r 's:[0-9]{3}$::')"
+
+        printf "%4d MHz " "$cpu_freq_a15"
+        printf "%4d MHz " "$cpu_freq_a7"
+        printf "%3d C " "$core_temp"
+        printf "%3d %% " "$fan_speed"
+        printf "\n"
+
+        sleep "$PERIOD"
+    done
 }
 
 
@@ -437,6 +493,10 @@ main () {
 
     if [[ "$QUERY" == "true" ]]; then
         query_config
+    fi
+
+    if [[ "$MONITOR" == "true" ]]; then
+        monitor_info
     fi
 }
 

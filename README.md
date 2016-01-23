@@ -31,26 +31,19 @@ In manual mode the hardware will simply spin the fan with a constant speed. Howe
 
 In manual mode it is possible to run the a temperature control loop that modifies the maximum cpu frequency instead of fan speed. The behavior is analogous to the that of fan speed based control only that the fan speed states are replaced by maximum cpu frequency states. In this mode the maximum frequency of all cores is modified.
 
+The script can also periodically display the current fan speed, temperature and cpu frequency.
+
 The reason I wrote this is that by default my Odroid xu4 board has fairly conservative temperature limits for automatic fan control (57,63,68) and the fan starts/stops spinning every couple of seconds (irritating). My current temperature limits (75,83,90) are such that the fan actually spins only when there is significant load. I've been running this configuration for months now without any problems but obviously there are no guarantees.
-
-
-## fanmon
-
-
-[fanmon](https://github.com/kstrnisa/odroid-xu-fanctl/blob/master/fanmon) periodically displays the current fan speed, temperature and cpu frequency.
 
 
 ## install
 
-These are shell scripts, so just drop it somewhere and make sure it's added to your $PATH. Or you can use the following one-liners:
+This is a shell script, so just drop it somewhere and make sure it's added to your $PATH. Or you can use the following one-liner:
 
 ```sh
 sudo sh -c "curl https://raw.githubusercontent.com/kstrnisa/odroid-xu-fanctl/master/fanctl -o /usr/bin/fanctl && chmod +x /usr/bin/fanctl"
 ```
 
-```sh
-sudo sh -c "curl https://raw.githubusercontent.com/kstrnisa/odroid-xu-fanctl/master/fanmon -o /usr/bin/fanmon && chmod +x /usr/bin/fanmon"
-```
 
 ## usage
 
@@ -58,14 +51,17 @@ sudo sh -c "curl https://raw.githubusercontent.com/kstrnisa/odroid-xu-fanctl/mas
 ### fanctl
 
 ```
-Usage: fanctl [-d] [-q] [-m mode] [-s fan states] [-f freq states] [-t temperature limits]
+Usage: fanctl [-d] [-q] [-r] [-p period] [-m mode]
+              [-s fan states] [-f freq states] [-t temperature limits]
 
-        -d Debug output.
-        -q Query automatic mode temperature control and fan settings.
-        -m Set fan control mode (0 - manual, 1 - automatic).
-        -s Set fan speed states in % of maximum (0 - 100). Format is "S1,S2,S3,S4".
-        -f Set maximum cpu frequency states in MHz. Format is "S1,S2,S3,S4".
-        -t Set fan temperature limits in degrees C. Format is "T1,T2,T3".
+       -d Debug output.
+       -q Query automatic mode temperature control and fan settings.
+       -r Monitor temperature, fan speed and cpu frequency.
+       -p Update period for manual temperature control and monitoring.
+       -m Set fan control mode (0 - manual, 1 - automatic).
+       -s Set fan speed states in % of maximum (0 - 100). Format is "S1,S2,S3,S4".
+       -f Set maximum cpu frequency states in MHz. Format is "S1,S2,S3,S4".
+       -t Set fan temperature limits in degrees C. Format is "T1,T2,T3".
 ```
 
 Example:
@@ -74,13 +70,18 @@ Example:
 fanctl -m 1 -t 75,83,90 -s 0,51,71,91
 ```
 
-This will set the fan control to automatic mode with temperature limits (75,83,90) for switching between fan (1,51,71,91) states/speeds. This means that while the temperature is below 75C the fan will not spin, when it is between 75C and 83C it will spin at 51% of maximum speed and so on.
+This will set the fan control to automatic mode with temperature limits (75,83,90) for switching between fan (1,51,71,91) states/speeds. This means that while the temperature is below 75C the fan will not spin, when it is between 75C and 83C it will spin at 51% of maximum speed and so on. The script will apply the settings and exit immediately.
 
 
-### fanmon
 ```
-fanmon [-c] [-p update period]
-
-        -c Clear previous info on each output.
-        -p Update period in seconds.
+fanctl -m 0 -t 75,83,90 -s 0,51,71,91
 ```
+
+This will run a control loop with the same behavior as the example above (only the loop will not run in hardware). The script will run until killed and will set the mode to automatic on exit.
+
+
+```
+fanctl -q -r
+```
+
+This will periodically display the current fan speed, temperature and cpu frequency.
