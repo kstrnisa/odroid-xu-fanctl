@@ -7,7 +7,7 @@ Utility script to configure or control the temperature on Odroid xu3/xu4 board.
 ## fanctl
 
 
-[fanctl.sh](https://github.com/kstrnisa/odroid-xu-fanctl/blob/master/fanctl.sh) is a convenience script that sets or queries fan related settings on the board:
+[fanctl](https://github.com/kstrnisa/odroid-xu-fanctl/blob/master/fanctl) is a convenience script that sets or queries fan related settings on the board:
  * fan control operating mode
  * fan states/speeds in auto mode
  * temperature limits in auto mode
@@ -37,7 +37,7 @@ The reason I wrote this is that by default my Odroid xu4 board has fairly conser
 ## fanmon
 
 
-[fanmon.sh](https://github.com/kstrnisa/odroid-xu-fanctl/blob/master/fanmon.sh) periodically displays the current fan speed, temperature and cpu frequency.
+[fanmon](https://github.com/kstrnisa/odroid-xu-fanctl/blob/master/fanmon) periodically displays the current fan speed, temperature and cpu frequency.
 
 
 ## install
@@ -45,11 +45,11 @@ The reason I wrote this is that by default my Odroid xu4 board has fairly conser
 These are shell scripts, so just drop it somewhere and make sure it's added to your $PATH. Or you can use the following one-liners:
 
 ```sh
-sudo sh -c "curl https://raw.githubusercontent.com/kstrnisa/odroid-xu-fanctl/master/fanctl.sh -o /usr/bin/fanctl.sh && chmod +x /usr/bin/fanctl.sh"
+sudo sh -c "curl https://raw.githubusercontent.com/kstrnisa/odroid-xu-fanctl/master/fanctl -o /usr/bin/fanctl && chmod +x /usr/bin/fanctl"
 ```
 
 ```sh
-sudo sh -c "curl https://raw.githubusercontent.com/kstrnisa/odroid-xu-fanctl/master/fanmon.sh -o /usr/bin/fanmon.sh && chmod +x /usr/bin/fanmon.sh"
+sudo sh -c "curl https://raw.githubusercontent.com/kstrnisa/odroid-xu-fanctl/master/fanmon -o /usr/bin/fanmon && chmod +x /usr/bin/fanmon"
 ```
 
 ## usage
@@ -58,7 +58,7 @@ sudo sh -c "curl https://raw.githubusercontent.com/kstrnisa/odroid-xu-fanctl/mas
 ### fanctl
 
 ```
-Usage: fanctl.sh [-d] [-q] [-m mode] [-s fan states] [-f freq states] [-t temperature limits]
+Usage: fanctl [-d] [-q] [-m mode] [-s fan states] [-f freq states] [-t temperature limits]
 
         -d Debug output.
         -q Query automatic mode temperature control and fan settings.
@@ -71,7 +71,7 @@ Usage: fanctl.sh [-d] [-q] [-m mode] [-s fan states] [-f freq states] [-t temper
 Example:
 
 ```
-fanctl.sh -m 1 -t 75,83,90 -s 0,51,71,91
+fanctl -m 1 -t 75,83,90 -s 0,51,71,91
 ```
 
 This will set the fan control to automatic mode with temperature limits (75,83,90) for switching between fan (1,51,71,91) states/speeds. This means that while the temperature is below 75C the fan will not spin, when it is between 75C and 83C it will spin at 51% of maximum speed and so on.
@@ -79,8 +79,8 @@ This will set the fan control to automatic mode with temperature limits (75,83,9
 
 ### fanmon
 ```
-fanmon.sh [-c] [-p update period]
+fanmon [-c] [-p update period]
 
-        -c Clear previos info on each output.
+        -c Clear previous info on each output.
         -p Update period in seconds.
 ```

@@ -2,11 +2,11 @@
 
 
 #
-# Helper script to monitor fan/temperature related info on odroid xu3/xu4 board.
+# Helper script to monitor fan/temperature related info on Odroid xu3/xu4 board.
 #
-# Usage: fanmon.sh [-c] [-p update period]
+# Usage: fanmon [-c] [-p update period]
 #
-#        -c Clear previos info on each output.
+#        -c Clear previous info on each output.
 #        -p Update period in seconds.
 #
 
@@ -61,7 +61,7 @@ do
             ;;
     esac
 done
-    
+
 
 printf " A15       A7      TEMP   FAN \n"
 printf "******************************\n"
@@ -74,18 +74,18 @@ do
     FAN_SPEED=$(( $FAN_PWM * 100 / 255 ))
     CPU_FREQ_A7=$(cpupower -c 0 frequency-info -f | tail -n 1 | sed -r 's:[0-9]{3}$::')
     CPU_FREQ_A15=$(cpupower -c 4 frequency-info -f | tail -n 1 | sed -r 's:[0-9]{3}$::')
-    
+
     printf "%4d MHz " $CPU_FREQ_A15
     printf "%4d MHz " $CPU_FREQ_A7
     printf "%3d C " $CORETEMP
     printf "%3d %% " $FAN_SPEED
-    
+
     if [[ $CLEAR ]]
     then
         printf "\r"
     else
         printf "\n"
     fi
-    
+
     sleep $PERIOD
 done

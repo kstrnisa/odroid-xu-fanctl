@@ -4,7 +4,7 @@
 #
 # Utility script to configure or control the temperature on Odroid xu3/xu4 board.
 #
-# Usage: fanctl.sh [-d] [-q] [-m mode] [-s fan states] [-f freq states] [-t temperature limits]
+# Usage: fanctl [-d] [-q] [-m mode] [-s fan states] [-f freq states] [-t temperature limits]
 #
 #        -d Debug output.
 #        -q Query automatic mode temperature control and fan settings.
