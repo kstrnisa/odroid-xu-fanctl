@@ -382,6 +382,13 @@ control_temp () {
 
 set_fan_speed () {
     local fan_speed="$1"
+
+    # The fan control behaves a bit strangely, if speed zero is set the fan
+    # will spin with maximum speed.
+    if (( fan_speed < 1 )); then
+        fan_speed="1"
+    fi
+
     local fan_pwm="$(( $fan_speed * 255 / 100 ))"
 
     printf_dbg "setting fan speed (pwm): $fan_speed ($fan_pwm)"
