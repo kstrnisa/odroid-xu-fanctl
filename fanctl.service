@@ -3,6 +3,7 @@ Description=Set limits for automatic fan control
 
 [Service]
 ExecStart=/usr/bin/fanctl -m 1 -s 1,51,71,91 -t 75,83,90
+#ExecStart=/usr/bin/fanctl -d -m 0 -t 70,80,90 -f 2000,1500,1000,800
 
 [Install]
 WantedBy=default.target
