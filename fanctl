@@ -398,7 +398,7 @@ set_fan_speed () {
 
 set_cpu_freq () {
     local cpu_freq_mhz="$1"
-    local cpu_freq_khz="$(( $1 * 1000 ))"
+    local cpu_freq_khz="$(( cpu_freq_mhz * 1000 ))"
 
     printf_dbg "setting max cpu frequency: $cpu_freq_mhz MHz"
     cpupower -c all frequency-set -u "$cpu_freq_khz" 1>/dev/null

@@ -1,7 +1,7 @@
 # Maintainer: Klemen Strnisa <klemen.strnisa@yahoo.com>
 
 pkgname=odroid-xu-fanctl
-pkgver=2.0.0
+pkgver=2.0.1
 pkgrel=1
 pkgdesc='Temperature control helper scripts for Odroid XU3/XU4'
 arch=('any')
