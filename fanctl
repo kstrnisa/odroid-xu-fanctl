@@ -420,12 +420,12 @@ get_status () {
     local core_temp="$(cat $CORE_TEMP_FILE | sed -r "s:[0-9]{3}$::")"
     local fan_pwm="$(cat $FAN_PWM_FILE)"
     local fan_speed="$(( fan_pwm * 100 / 255 ))"
-    local cpu_freq_a7="$(cpupower -c 0 frequency-info -f  \
-            | tail -n 1                             \
-            | sed -r 's:[0-9]{3}$::')"
-    local cpu_freq_a15="$(cpupower -c 4 frequency-info -f \
-            | tail -n 1                             \
-            | sed -r 's:[0-9]{3}$::')"
+    local cpu_freq_a7="$(cpupower -c 0 frequency-info -f            \
+            | egrep 'frequency:'                                    \
+            | sed -r 's:[^0-9]*([0-9]*)([0-9]{3})[^0-9]*:\1:')"
+    local cpu_freq_a15="$(cpupower -c 4 frequency-info -f           \
+            | egrep 'frequency:'                                    \
+            | sed -r 's:[^0-9]*([0-9]*)([0-9]{3})[^0-9]*:\1:')"
 
     printf "%4d MHz " "$cpu_freq_a15"
     printf "%4d MHz " "$cpu_freq_a7"
